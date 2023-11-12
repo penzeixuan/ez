@@ -39,7 +39,7 @@ local function HeartbeatUpdate()
 end
 Start = tick()
 Heartbeat:Connect(HeartbeatUpdate)
-local Window = OrionLib:MakeWindow({Name = "pen.脚本", HidePremium = false, SaveConfig = true,IntroText = "鲨.脚本", ConfigFolder = "鲨.脚本"})
+local Window = OrionLib:MakeWindow({Name = "pen.脚本", HidePremium = false, SaveConfig = true,IntroText = "pen.脚本", ConfigFolder = "pen.脚本"})
 
 local about = Window:MakeTab({
     Name = "pen制作",
