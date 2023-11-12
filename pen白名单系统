@@ -2,7 +2,7 @@ whitelist = {
     "proyanzeixuan",
     "名字",
     "名字",
-    "名字"
+    "名字",
     "名字",
     "名字",
     "名字",
@@ -3663,11 +3663,8 @@ player:AddButton({
   	end
 })
 
--------
-  -- Run the created entity
   Creator.runEntity(entity)
         
 end
-})
 game.Players.LocalPlayer:Kick("你没有白名单快去找2062497133加白名单")
 end
