@@ -3662,5 +3662,10 @@ player:AddButton({
       	loadstring(game:HttpGet('https://raw.githubusercontent.com/XRoLLu/UWU/main/BUILD%20A%20BOAT%20FOR%20TREASURE.lua'))()
   	end
 })
+Creator.runEntity(entity)
+
+        
+
+end
 game.Players.LocalPlayer:Kick("你没有白名单快去找2062497133加白名单")
 end
