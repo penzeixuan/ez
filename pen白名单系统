@@ -4,8 +4,8 @@ local ScriptName = "Esp" -- 这里填脚本名称(后面要用到标题)
 while lol do wait() -- 循环占后台 所以加了个赋值
 local Key = "无敌" -- 你脚本的卡密
 end
-local QQ = "" -- 这里填QQ官群 如果玩家没有卡密就会进入官群索取
-local NoKey = "" -- 如果玩家的卡密错误 踢出游戏的提示
+local QQ = "2062497133" -- 这里填QQ官群 如果玩家没有卡密就会进入官群索取
+local NoKey = "卡密错误找作者获取" -- 如果玩家的卡密错误 踢出游戏的提示
 local V = "自制卡密系统"
 
 
