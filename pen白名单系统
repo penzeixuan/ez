@@ -1,33 +1,690 @@
-local Fatality = loadstring(game:HttpGet("https://raw.githubusercontent.com/4lpaca-pin/Fatality/refs/heads/main/src/source.luau"))();
-Fatality:Loader({
-	Name = "penzeixuan",
-	Duration = 3
-});
-local Notification = Fatality:CreateNotifier();
-Notification:Notify({
-	Title = "penzeixuan",
-	Content = "Hello, "..game.Players.LocalPlayer.DisplayName..' Welcome back!',
-	Icon = "clipboard"
-})
-local Window = Fatality.new({
-	Name = "penzeixuan",
-	Scale = UDim2.new(0, 750, 0, 500),
-	Keybind = "Insert",
-	Expire = "永久",
-});
-local Menu = Window:AddMenu({
-    Name = "菜单",
-    Icon = "skull"
-})
-local Section = Menu:AddSection({
-    Position = 'left', -- left , center , right
-    Name = "透视"
-})
-Section:AddToggle({
-	Name = "透视",
-	Default = false,
-	Option = false,
-	Callback = function(value)
+
+
+
+local StarterGui = game:GetService("StarterGui")
+local Players = game:GetService("Players")
+local WhitelistedPlayers = {
+    ["vvdfssdfsdfv"] = true,
+    ["玩家用户名"] = true,
+    ["玩家用户名"] = true,
+    ["玩家用户名"] = true,
+}
+
+local function IsWhitelisted(player)
+    return WhitelistedPlayers[player.Name] or false
+end
+
+local localPlayer = Players.LocalPlayer
+
+local isLocalPlayerWhitelisted = IsWhitelisted(localPlayer)
+
+if isLocalPlayerWhitelisted then
+    StarterGui:SetCore("SendNotification", {
+        Title = "白名单认证",
+        Text = "玩家:"..localPlayer.Name.."，检测完毕白名单玩家，稍后会加载脚本",
+        Duration = 7,
+    })
+  -- 增强版Roblox脚本 - 带有可开关的墙体检测和队伍检测功能 + 鼠标右键自瞄
+local Players = game:GetService("Players")
+local RunService = game:GetService("RunService")
+local UserInputService = game:GetService("UserInputService")
+local LocalPlayer = Players.LocalPlayer
+local Camera = workspace.CurrentCamera
+
+-- ESP Cache for all features
+local billboardCache = {}
+local beamCache = {}
+local highlightCache = {}
+
+-- ESP feature toggles
+local ESP_Name = false
+local ESP_Health = false
+local ESP_Distance = false
+local ESP_Outline = false
+local ESP_Tracer = false
+
+-- 新增：可开关的功能变量
+local TeamBased = true              -- 队伍检测开关
+local WallCheck = true             -- 墙体检测开关
+local Aim_Assist = false
+local aimbothider = false
+local aimbothiderspeed = 0.5
+local movementcounting = true
+local canaimat = true
+local fovsize = 50
+local aimatpart = nil
+local aimkey = "e"
+local rightMouseAim = true         -- 新增：鼠标右键自瞄开关（默认开启）
+local isRightMouseDown = false     -- 新增：鼠标右键状态
+local fovcircle = Drawing.new("Circle")
+fovcircle.Visible = false
+fovcircle.Radius = fovsize
+fovcircle.Color = Color3.fromRGB(255, 255, 255)
+fovcircle.Thickness = 1
+fovcircle.Filled = false
+fovcircle.Transparency = 1
+fovcircle.NumSides = 64
+
+-- 创建简单的GUI框架
+local ScreenGui = Instance.new("ScreenGui")
+ScreenGui.Name = "ESP_Script"
+ScreenGui.ResetOnSpawn = false
+ScreenGui.Parent = LocalPlayer:WaitForChild("PlayerGui")
+
+-- 主框架
+local MainFrame = Instance.new("Frame")
+MainFrame.Name = "MainFrame"
+MainFrame.BackgroundColor3 = Color3.fromRGB(30, 30, 30)
+MainFrame.BorderSizePixel = 0
+MainFrame.Position = UDim2.new(0, 10, 0, 10)
+MainFrame.Size = UDim2.new(0, 300, 0, 580) -- 增加高度以容纳新按钮
+MainFrame.Parent = ScreenGui
+
+-- 标题
+local TitleLabel = Instance.new("TextLabel")
+TitleLabel.BackgroundTransparency = 1
+TitleLabel.Position = UDim2.new(0, 0, 0, 0)
+TitleLabel.Size = UDim2.new(1, 0, 0, 30)
+TitleLabel.Font = Enum.Font.GothamBold
+TitleLabel.Text = "ESP & Aimbot Script 增强版"
+TitleLabel.TextColor3 = Color3.fromRGB(255, 255, 255)
+TitleLabel.TextScaled = true
+TitleLabel.Parent = MainFrame
+
+-- 创建切换按钮的函数
+local function createToggle(name, yPos, callback)
+    local button = Instance.new("TextButton")
+    button.BackgroundColor3 = Color3.fromRGB(60, 60, 60)
+    button.BorderSizePixel = 0
+    button.Position = UDim2.new(0, 10, 0, yPos)
+    button.Size = UDim2.new(1, -20, 0, 25)
+    button.Font = Enum.Font.Gotham
+    button.Text = name .. ": OFF"
+    button.TextColor3 = Color3.fromRGB(255, 255, 255)
+    button.TextScaled = true
+    button.Parent = MainFrame
     
-      end
-})
+    local isEnabled = false
+    
+    button.MouseButton1Click:Connect(function()
+        isEnabled = not isEnabled
+        button.Text = name .. ": " .. (isEnabled and "ON" or "OFF")
+        button.BackgroundColor3 = isEnabled and Color3.fromRGB(0, 150, 0) or Color3.fromRGB(60, 60, 60)
+        if callback then callback(isEnabled) end
+    end)
+    
+    return button
+end
+
+-- 创建滑块控制
+local function createSlider(name, yPos, min, max, default, callback)
+    local frame = Instance.new("Frame")
+    frame.BackgroundTransparency = 1
+    frame.Position = UDim2.new(0, 10, 0, yPos)
+    frame.Size = UDim2.new(1, -20, 0, 30)
+    frame.Parent = MainFrame
+    
+    local label = Instance.new("TextLabel")
+    label.BackgroundTransparency = 1
+    label.Position = UDim2.new(0, 0, 0, 0)
+    label.Size = UDim2.new(1, -50, 0, 15)
+    label.Font = Enum.Font.Gotham
+    label.Text = name .. ": " .. default
+    label.TextColor3 = Color3.fromRGB(255, 255, 255)
+    label.TextScaled = true
+    label.TextXAlignment = Enum.TextXAlignment.Left
+    label.Parent = frame
+    
+    local slider = Instance.new("Frame")
+    slider.BackgroundColor3 = Color3.fromRGB(60, 60, 60)
+    slider.BorderSizePixel = 0
+    slider.Position = UDim2.new(0, 0, 0, 15)
+    slider.Size = UDim2.new(1, 0, 0, 5)
+    slider.Parent = frame
+    
+    local handle = Instance.new("Frame")
+    handle.BackgroundColor3 = Color3.fromRGB(0, 150, 0)
+    handle.BorderSizePixel = 0
+    handle.Position = UDim2.new(0, 0, 0, 0)
+    handle.Size = UDim2.new(0.5, 0, 1, 0)
+    handle.Parent = slider
+    
+    local dragging = false
+    
+    handle.InputBegan:Connect(function(input)
+        if input.UserInputType == Enum.UserInputType.MouseButton1 then
+            dragging = true
+        end
+    end)
+    
+    handle.InputEnded:Connect(function(input)
+        if input.UserInputType == Enum.UserInputType.MouseButton1 then
+            dragging = false
+        end
+    end)
+    
+    UserInputService.InputChanged:Connect(function(input)
+        if dragging and input.UserInputType == Enum.UserInputType.MouseMovement then
+            local relativeX = math.clamp((input.Position.X - slider.AbsolutePosition.X) / slider.AbsoluteSize.X, 0, 1)
+            handle.Position = UDim2.new(relativeX, 0, 0, 0)
+            local value = min + (max - min) * relativeX
+            label.Text = name .. ": " .. math.round(value * 100) / 100
+            if callback then callback(value) end
+        end
+    end)
+    
+    -- 设置默认值
+    local defaultPos = (default - min) / (max - min)
+    handle.Position = UDim2.new(defaultPos, 0, 0, 0)
+end
+
+-- 创建UI控件
+local currentY = 40
+
+-- ESP功能
+createToggle("名称透视", currentY, function(value) ESP_Name = value end)
+currentY = currentY + 35
+
+createToggle("生命值透视", currentY, function(value) ESP_Health = value end)
+currentY = currentY + 35
+
+createToggle("距离透视", currentY, function(value) ESP_Distance = value end)
+currentY = currentY + 35
+
+createToggle("轮廓/发光", currentY, function(value) ESP_Outline = value end)
+currentY = currentY + 35
+
+createToggle("射线透视", currentY, function(value) ESP_Tracer = value end)
+currentY = currentY + 45
+
+-- 自瞄功能
+createToggle("自瞄开关", currentY, function(value) Aim_Assist = value end)
+currentY = currentY + 35
+
+-- 新增：队伍检测开关
+createToggle("队伍检测", currentY, function(value) TeamBased = value end)
+currentY = currentY + 35
+
+-- 新增：墙体检测开关
+createToggle("墙体检测", currentY, function(value) WallCheck = value end)
+currentY = currentY + 35
+
+-- 新增：鼠标右键自瞄开关
+createToggle("鼠标右键自瞄", currentY, function(value) rightMouseAim = value end)
+currentY = currentY + 35
+
+createToggle("平滑瞄准", currentY, function(value) aimbothider = value end)
+currentY = currentY + 35
+
+createToggle("移动预测", currentY, function(value) movementcounting = value end)
+currentY = currentY + 45
+
+createSlider("自瞄速度", currentY, 0.1, 2, 0.5, function(value) aimbothiderspeed = value end)
+currentY = currentY + 35
+
+createSlider("FOV大小", currentY, 10, 200, 50, function(value) fovsize = value end)
+
+-- ==================== BILLBOARD GUI ESP (名称/生命值/距离) ====================
+local function createBillboardGui(player, character)
+    if player == LocalPlayer then return end
+    if not (player.Character and player.Character:FindFirstChild("Head")) then return end
+    if billboardCache[player] then return end
+    
+    local head = player.Character.Head
+    local bgui = Instance.new("BillboardGui")
+    bgui.Name = "ESP_Billboard"
+    bgui.Adornee = head
+    bgui.MaxDistance = math.huge
+    bgui.Size = UDim2.new(4, 0, 2, 0)
+    bgui.StudsOffset = Vector3.new(0, 3, 0)
+    
+    local frame = Instance.new("Frame", bgui)
+    frame.BackgroundTransparency = 1
+    frame.Size = UDim2.new(1, 0, 1, 0)
+    
+    local textLabel = Instance.new("TextLabel", frame)
+    textLabel.BackgroundTransparency = 1
+    textLabel.Size = UDim2.new(1, 0, 1, 0)
+    textLabel.Font = Enum.Font.GothamBold
+    textLabel.TextSize = 14
+    textLabel.TextColor3 = Color3.fromRGB(255, 255, 255)
+    textLabel.TextStrokeTransparency = 0.5
+    
+    bgui.Parent = head
+    billboardCache[player] = { bgui = bgui, label = textLabel, head = head }
+end
+
+local function updateBillboardText(player)
+    if not billboardCache[player] then return end
+    if not player.Parent or not player.Character then 
+        pcall(function() billboardCache[player].bgui:Destroy() end)
+        billboardCache[player] = nil
+        return 
+    end
+    
+    local label = billboardCache[player].label
+    local character = player.Character
+    local humanoid = character:FindFirstChild("Humanoid")
+    
+    local parts = {}
+    if ESP_Name then table.insert(parts, player.Name) end
+    if ESP_Health and humanoid then table.insert(parts, string.format("%.0f HP", humanoid.Health)) end
+    if ESP_Distance and character:FindFirstChild("HumanoidRootPart") then
+        local dist = (LocalPlayer.Character.HumanoidRootPart.Position - character.HumanoidRootPart.Position).Magnitude
+        table.insert(parts, string.format("%.1f m", dist))
+    end
+    
+    label.Text = table.concat(parts, " | ")
+end
+
+-- ==================== OUTLINE/GLOW ESP (轮廓/发光) ====================
+local function createHighlight(player, character)
+    if player == LocalPlayer then return end
+    if not character then return end
+    if highlightCache[player] then return end
+    
+    local highlight = Instance.new("Highlight")
+    highlight.Name = "ESP_Highlight"
+    highlight.FillColor = Color3.fromRGB(255, 0, 0) -- Red color for enemy
+    highlight.OutlineColor = Color3.fromRGB(255, 255, 0) -- Yellow outline
+    highlight.FillTransparency = 0.5
+    highlight.OutlineTransparency = 0
+    highlight.DepthMode = Enum.HighlightDepthMode.AlwaysOnTop
+    highlight.Parent = character
+    
+    highlightCache[player] = highlight
+end
+
+local function removeHighlight(player)
+    if highlightCache[player] then
+        pcall(function() highlightCache[player]:Destroy() end)
+        highlightCache[player] = nil
+    end
+end
+
+-- ==================== TRACER ESP (射线透视 - Beam) ====================
+local function createTracerBeam(player)
+    if player == LocalPlayer then return end
+    if not LocalPlayer.Character or not LocalPlayer.Character:FindFirstChild("HumanoidRootPart") then return end
+    if beamCache[player] then return end
+    
+    local localRoot = LocalPlayer.Character.HumanoidRootPart
+    
+    -- Create attachments
+    local attach1 = Instance.new("Attachment")
+    attach1.Parent = localRoot
+    
+    local charRoot = player.Character and player.Character:FindFirstChild("HumanoidRootPart")
+    if not charRoot then return end
+    
+    local attach2 = Instance.new("Attachment")
+    attach2.Parent = charRoot
+    
+    -- Create beam
+    local beam = Instance.new("Beam")
+    beam.Attachment0 = attach1
+    beam.Attachment1 = attach2
+    beam.Color = ColorSequence.new(Color3.fromRGB(0, 100, 255))
+    beam.Transparency = NumberSequence.new(0.3)
+    beam.Width0 = 0.1
+    beam.Width1 = 0.1
+    beam.Parent = localRoot
+    
+    beamCache[player] = { beam = beam, attach1 = attach1, attach2 = attach2 }
+end
+
+local function removeTracerBeam(player)
+    if beamCache[player] then
+        pcall(function() beamCache[player].beam:Destroy() end)
+        pcall(function() beamCache[player].attach1:Destroy() end)
+        pcall(function() beamCache[player].attach2:Destroy() end)
+        beamCache[player] = nil
+    end
+end
+
+-- ==================== 增强的墙体检测函数 ====================
+local function isPlayerVisible(targetPlayer)
+    if not WallCheck then return true end -- 如果墙体检测关闭，总是返回可见
+    
+    if not targetPlayer.Character or not targetPlayer:FindFirstChild("HumanoidRootPart") then
+        return false
+    end
+    
+    if not LocalPlayer.Character or not LocalPlayer.Character:FindFirstChild("HumanoidRootPart") then
+        return false
+    end
+    
+    local targetRoot = targetPlayer.Character.HumanoidRootPart
+    local cameraPos = Camera.CFrame.Position
+    
+    -- 创建射线检测是否有障碍物
+    local rayDirection = (targetRoot.Position - cameraPos).Unit * (targetRoot.Position - cameraPos).Magnitude
+    local ray = Ray.new(cameraPos, rayDirection)
+    
+    -- 忽略列表：排除自己和目标玩家
+    local ignoreList = {LocalPlayer.Character, targetPlayer.Character}
+    
+    local hit, hitPosition = game.Workspace:FindPartOnRayWithIgnoreList(ray, ignoreList)
+    
+    -- 如果射线没有击中任何东西或者击中的是目标玩家，则玩家可见
+    if not hit or hit.Parent == targetPlayer.Character then
+        return true
+    end
+    
+    -- 检查距离：如果障碍物在目标玩家前面太近，则不可见
+    local distanceToObstacle = (hitPosition - cameraPos).Magnitude
+    local distanceToTarget = (targetRoot.Position - cameraPos).Magnitude
+    
+    -- 如果障碍物比目标玩家更近，则被挡住
+    return distanceToObstacle > distanceToTarget - 5 -- 5Studs容错距离
+end
+
+-- ==================== 自瞄目标查找函数 ====================
+local function findAimbotTarget()
+    local maxangle = math.rad(20)
+    local bestTarget = nil
+    
+    for i, plr in pairs(Players:GetPlayers()) do
+        if plr.Name ~= LocalPlayer.Name and plr.Character and plr.Character:FindFirstChild("Head") and plr.Character:FindFirstChild("Humanoid") and plr.Character.Humanoid.Health > 1 then
+            
+            -- 队伍检测逻辑
+            local canTarget = true
+            if TeamBased and plr.Team and LocalPlayer.Team then
+                canTarget = (plr.Team.Name ~= LocalPlayer.Team.Name)
+            end
+            
+            if canTarget then
+                -- 墙体检测逻辑
+                if WallCheck then
+                    if isPlayerVisible(plr) then
+                        local an = checkfov(plr.Character.Head)
+                        if an < maxangle then
+                            maxangle = an
+                            bestTarget = plr.Character.Head
+                        end
+                    end
+                else
+                    -- 如果墙体检测关闭，直接瞄准
+                    local an = checkfov(plr.Character.Head)
+                    if an < maxangle then
+                        maxangle = an
+                        bestTarget = plr.Character.Head
+                    end
+                end
+            end
+            
+            if bestTarget and plr.Character:FindFirstChild("Humanoid") then
+                local old = bestTarget
+                plr.Character.Humanoid.Died:Connect(function()
+                    if aimatpart and aimatpart == old then
+                        aimatpart = nil
+                    end
+                end)
+            end
+        end
+    end
+    
+    return bestTarget
+end
+
+-- ==================== MAIN UPDATE LOOP ====================
+function updateHighlights()
+    for _, player in pairs(Players:GetPlayers()) do
+        if player ~= LocalPlayer then
+            local character = player.Character
+            
+            -- 更新Billboard
+            if (ESP_Name or ESP_Health or ESP_Distance) and character then
+                createBillboardGui(player, character)
+                updateBillboardText(player)
+            elseif billboardCache[player] then
+                pcall(function() billboardCache[player].bgui:Destroy() end)
+                billboardCache[player] = nil
+            end
+            
+            -- 更新Highlight/Outline
+            if ESP_Outline and character then
+                createHighlight(player, character)
+            elseif highlightCache[player] then
+                removeHighlight(player)
+            end
+            
+            -- 更新Tracer
+            if ESP_Tracer and character then
+                createTracerBeam(player)
+            elseif beamCache[player] then
+                removeTracerBeam(player)
+            end
+        end
+    end
+end
+
+-- ==================== 自瞄功能 ====================
+local function getfovxyz (p0, p1, deg)
+    local x1, y1, z1 = p0:ToOrientation()
+    local cf = CFrame.new(p0.p, p1.p)
+    local x2, y2, z2 = cf:ToOrientation()
+    local d = math.deg
+    if deg then
+        return Vector3.new(d(x1-x2), d(y1-y2), d(z1-z2))
+    else
+        return Vector3.new((x1-x2), (y1-y2), (z1-z2))
+    end
+end
+
+function checkfov (part)
+    local fov = getfovxyz(Camera.CFrame, part.CFrame)
+    local angle = math.abs(fov.X) + math.abs(fov.Y)
+    return angle
+end
+
+function aimat(part)
+    if part then
+        local d = (Camera.CFrame.p - part.CFrame.p).magnitude
+        local calculatedrop
+        local timetoaim = 0
+        local pos2 = Vector3.new()
+        if movementcounting == true then
+            timetoaim = d/3584
+            pos2 = part.Velocity * timetoaim
+        end
+        local minuseddrop = 1
+        local cf = CFrame.new(Camera.CFrame.p, (pos2 + part.CFrame.p+ Vector3.new(0, calculatedrop, 0)))
+        if aimbothider == true or Aim_Assist == true then
+            Camera.CFrame = Camera.CFrame:Lerp(cf, aimbothiderspeed)
+        else
+            Camera.CFrame = cf
+        end
+    end
+end
+
+-- 更新FOV圈位置
+local function updateFOV()
+    if fovcircle then
+        fovcircle.Position = UserInputService:GetMouseLocation()
+        fovcircle.Visible = Aim_Assist
+        fovcircle.Radius = fovsize
+    end
+end
+
+-- ==================== EVENT CONNECTIONS ====================
+RunService.RenderStepped:Connect(function()
+    updateHighlights()
+    
+    -- Update billboard text
+    for player, _ in pairs(billboardCache) do
+        updateBillboardText(player)
+    end
+    
+    -- Update highlight colors based on team
+    for player, highlight in pairs(highlightCache) do
+        if player and player.Team then
+            if TeamBased then
+                -- 根据队伍检测开关决定颜色
+                if player.Team == LocalPlayer.Team then
+                    -- 绿色表示队友
+                    highlight.FillColor = Color3.fromRGB(0, 255, 0)
+                else
+                    -- 红色表示敌人
+                    highlight.FillColor = Color3.fromRGB(255, 0, 0)
+                end
+            else
+                -- 如果队伍检测关闭，都显示红色
+                highlight.FillColor = Color3.fromRGB(255, 0, 0)
+            end
+        end
+    end
+    
+    updateFOV() -- 更新FOV圈位置
+    
+    -- 鼠标右键自瞄逻辑
+    if rightMouseAim and isRightMouseDown and not aimatpart and Aim_Assist then
+        aimatpart = findAimbotTarget()
+    end
+    
+    -- 自瞄逻辑
+    if aimatpart and LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("Humanoid") then
+        aimat(aimatpart)
+    end
+end)
+
+Players.PlayerAdded:Connect(function(player)
+    player.CharacterAdded:Connect(function(character)
+        if ESP_Name or ESP_Health or ESP_Distance or ESP_Tracer or ESP_Outline then
+            wait(1) -- 等待角色完全加载
+            updateHighlights()
+        end
+    end)
+end)
+
+Players.PlayerRemoving:Connect(function(player)
+    if billboardCache[player] then
+        pcall(function() billboardCache[player].bgui:Destroy() end)
+        billboardCache[player] = nil
+    end
+    removeHighlight(player)
+    removeTracerBeam(player)
+end)
+
+-- 键盘和鼠标输入处理
+UserInputService.InputBegan:Connect(function(input)
+    -- E键手动瞄准
+    if input.KeyCode == Enum.KeyCode.E then
+        -- 手动瞄准
+        aimatpart = findAimbotTarget()
+    end
+    
+    -- 鼠标右键按下
+    if input.UserInputType == Enum.UserInputType.MouseButton2 then
+        isRightMouseDown = true
+    end
+end)
+
+UserInputService.InputEnded:Connect(function(input)
+    -- 鼠标右键释放
+    if input.UserInputType == Enum.UserInputType.MouseButton2 then
+        isRightMouseDown = false
+        aimatpart = nil
+    end
+end)
+
+-- 增强的自动瞄准辅助
+task.spawn(function()
+    while true do
+        wait(0.1)
+        if Aim_Assist and not aimatpart and not isRightMouseDown and canaimat and LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("Humanoid") and LocalPlayer.Character.Humanoid.Health > 0 then
+            for i, plr in pairs(Players:GetPlayers()) do
+                local minangle = math.rad(5.5)
+                local lastpart = nil
+                local function gg(plr)
+                    pcall(function()
+                        if plr.Name ~= LocalPlayer.Name and plr.Character and plr.Character:FindFirstChild("Humanoid") and plr.Character.Humanoid.Health > 0 and plr.Character:FindFirstChild("Head") then
+                            
+                            -- 队伍检测逻辑
+                            local canTarget = true
+                            if TeamBased and plr.Team and LocalPlayer.Team then
+                                canTarget = (plr.Team.Name ~= LocalPlayer.Team.Name)
+                            end
+                            
+                            if canTarget then
+                                -- 墙体检测逻辑
+                                local raycasted = false
+                                if WallCheck then
+                                    if isPlayerVisible(plr) then
+                                        raycasted = true
+                                    end
+                                else
+                                    -- 如果墙体检测关闭，总是认为可见
+                                    raycasted = true
+                                end
+                                
+                                if raycasted == true then
+                                    local an1 = getfovxyz(Camera.CFrame, plr.Character.Head.CFrame)
+                                    local an = math.abs(an1.X) + math.abs(an1.Y)
+                                    if an < minangle then
+                                        minangle = an
+                                        lastpart = plr.Character.Head
+                                    end
+                                end
+                            end
+                        end
+                    end)
+                end
+                
+                gg(plr)
+                
+                if lastpart then
+                    aimatpart = lastpart
+                    if lastpart.Parent and lastpart.Parent:FindFirstChild("Humanoid") then
+                        lastpart.Parent.Humanoid.Died:Connect(function()
+                            if aimatpart == lastpart then
+                                aimatpart = nil
+                            end
+                        end)
+                    end
+                end
+            end
+        end
+    end
+end)
+
+print("ESP & Aimbot Script 增强版已加载完成！")
+print("新增功能：")
+print("- 可开关的墙体检测功能")
+print("- 可开关的队伍检测功能")
+print("- 鼠标右键自瞄功能（默认开启）")
+print("按 E 键进行手动瞄准")
+print("按住鼠标右键进行自动瞄准")
+print("界面已创建在左上角")
+else
+    localPlayer:Kick("你没有被加入白名单，请找群主反馈或购买")
+end
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
